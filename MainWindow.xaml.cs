@@ -9,9 +9,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using TagLib;
 using WpfScreenHelper;
@@ -32,20 +34,10 @@ public partial class MainWindow : Window
         defaultWidth = Width;
         defaultHeight = Height;
 
-        defaultX = isPc ? -20 - defaultWidth : 20;
-        defaultY = MON_HEIGHT - defaultHeight - 44 - 20;
-
-        Left = defaultX;
-        Top = defaultY;
-
-        // Default Location
+        // Default Theme & Visual
+        ChangeTheme(0);
+        ChangeFull(0);
         MoveToDefaultLocation(false);
-
-        // Default Theme
-        ThemeLightMode();
-
-        // Default Vis
-        ToggleFullScreen(false);
 
         InitializeOutputDevice();
 
@@ -145,115 +137,230 @@ public partial class MainWindow : Window
         }
     }
 
+    bool first = true;
     private void RenderVisFrame()
     {
-        var width = 0D;
-        var height = amp;
-
-        Dispatcher.Invoke(() =>
+        if (full == 3)
         {
-            width = MainVisCanvas.ActualWidth;
-            MainVisCanvas.Height = height;
-        });
+            var height = amp;
 
-        var margin = 40D;
-        var dx = xMult / avgCount * avgIndex;
+            var dx = xMult / avgCount * avgIndex;
 
-        var xHalfMult = xMult / 2;
+            var xHalfMult = xMult / 2;
 
-        var numPoints = (int)((width - (margin * 2)) / xMult);
+            var numPoints = 112;
 
-        if (numPoints <= 0) return;
+            if (numPoints <= 0) return;
 
-        var actualWidth = numPoints * xMult;
-        margin = (width - actualWidth) / 2;
+            var actualWidth = numPoints * xMult;
 
-        BeginReadVisData();
+            BeginReadVisData();
 
-        var p = new Point[numPoints];
+            var p = new Point[numPoints];
+            p[0] = new Point(0, amp / 2);
 
-        for (var i = 0; i < p.Length; i++)
-        {
-            var x = (xMult * i) + margin + dx;
-            var y = CustomMap(ReadNextVisData());
-            p[i] = new Point(x, y);
-        }
-
-        var c = new Point[p.Length][];
-
-        var dxt = xMult * 0.4;
-
-        for (var i = 1; i < p.Length - 1; i++)
-        {
-            var dy = p[i + 1].Y - p[i - 1].Y;
-            var dyt = dy * 0.2;
-
-            var x = p[i].X + dxt;
-            var y = p[i].Y + dyt;
-
-            var x2 = p[i].X - dxt;
-            var y2 = p[i].Y - dyt;
-
-            c[i] = new Point[2];
-            c[i][0] = new Point(x, y);
-            c[i][1] = new Point(x2, y2);
-        }
-
-        if (lastPoints == numPoints)
-        {
-            Dispatcher.Invoke(() =>
+            for (var i = 1; i < p.Length; i++)
             {
-                var geometry = (PathGeometry)MainVisPath.Data;
-                var segments = geometry.Figures[0].Segments;
-                geometry.Figures[0].StartPoint = p[0];
-                var segstart = (QuadraticBezierSegment)segments[0];
-                segstart.Point1 = c[1][1];
-                segstart.Point2 = p[1];
+                var x = (xMult * i) + dx;
+                var y = CustomMap(ReadNextVisData());
+                p[i] = new Point(x, y);
+            }
 
-                for (var i = 1; i < p.Length - 2; i++)
-                {
-                    var seg = (BezierSegment)segments[i];
-                    seg.Point1 = c[i][0];
-                    seg.Point2 = c[i + 1][1];
-                    seg.Point3 = p[i + 1];
-                }
+            var c = new Point[p.Length][];
 
-                var segend = (QuadraticBezierSegment)segments[numPoints - 2];
-                segend.Point1 = c[p.Length - 2][0];
-                segend.Point2 = p[^1];
-            });
+            var dxt = xMult * 0.4;
+
+            for (var i = 1; i < p.Length - 1; i++)
+            {
+                var dy = p[i + 1].Y - p[i - 1].Y;
+                var dyt = dy * 0.2;
+
+                var x = p[i].X + dxt;
+                var y = p[i].Y + dyt;
+
+                var x2 = p[i].X - dxt;
+                var y2 = p[i].Y - dyt;
+
+                c[i] = new Point[2];
+                c[i][0] = new Point(x, y);
+                c[i][1] = new Point(x2, y2);
+            }
+
+            RenderVis(p, c, 112, Vis1);
+            RenderVis(p, c, 112, Vis3);
+            RenderVis(p, c, 88, Vis2);
+            RenderVis(p, c, 88, Vis4);
+
+            if (first)
+            {
+                first = false;
+            }
+
+            var sleep = lastnums.Average();
+            Thread.Sleep((int)(10 - (sleep * 4)));
         }
         else
         {
+            var width = 0D;
+            var height = amp;
+
             Dispatcher.Invoke(() =>
+                    {
+                        width = MainVisCanvas.ActualWidth;
+                        MainVisCanvas.Height = height;
+                    });
+
+            var margin = 40D;
+            var dx = xMult / avgCount * avgIndex;
+
+            var xHalfMult = xMult / 2;
+
+            var numPoints = (int)((width - (margin * 2)) / xMult);
+
+            if (numPoints <= 0) return;
+
+            var actualWidth = numPoints * xMult;
+            margin = (width - actualWidth) / 2;
+
+            BeginReadVisData();
+
+            var p = new Point[numPoints];
+
+            for (var i = 0; i < p.Length; i++)
             {
-                var segments = new List<PathSegment>
+                var x = (xMult * i) + margin + dx;
+                var y = CustomMap(ReadNextVisData());
+                p[i] = new Point(x, y);
+            }
+
+            var c = new Point[p.Length][];
+
+            var dxt = xMult * 0.4;
+
+            for (var i = 1; i < p.Length - 1; i++)
+            {
+                var dy = p[i + 1].Y - p[i - 1].Y;
+                var dyt = dy * 0.2;
+
+                var x = p[i].X + dxt;
+                var y = p[i].Y + dyt;
+
+                var x2 = p[i].X - dxt;
+                var y2 = p[i].Y - dyt;
+
+                c[i] = new Point[2];
+                c[i][0] = new Point(x, y);
+                c[i][1] = new Point(x2, y2);
+            }
+
+            if (lastPoints == numPoints)
+            {
+                Dispatcher.Invoke(() =>
                 {
+                    var geometry = (PathGeometry)MainVisPath.Data;
+                    var segments = geometry.Figures[0].Segments;
+                    geometry.Figures[0].StartPoint = p[0];
+                    var segstart = (QuadraticBezierSegment)segments[0];
+                    segstart.Point1 = c[1][1];
+                    segstart.Point2 = p[1];
+
+                    for (var i = 1; i < p.Length - 2; i++)
+                    {
+                        var seg = (BezierSegment)segments[i];
+                        seg.Point1 = c[i][0];
+                        seg.Point2 = c[i + 1][1];
+                        seg.Point3 = p[i + 1];
+                    }
+
+                    var segend = (QuadraticBezierSegment)segments[numPoints - 2];
+                    segend.Point1 = c[p.Length - 2][0];
+                    segend.Point2 = p[^1];
+                });
+            }
+            else
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    var segments = new List<PathSegment>
+                    {
                     new QuadraticBezierSegment(c[1][1], p[1], isStroked: true)
-                };
+                    };
 
-                for (var i = 1; i < p.Length - 2; i++)
-                    segments.Add(new BezierSegment(c[i][0], c[i + 1][1], p[i + 1], isStroked: true));
+                    for (var i = 1; i < p.Length - 2; i++)
+                        segments.Add(new BezierSegment(c[i][0], c[i + 1][1], p[i + 1], isStroked: true));
 
-                segments.Add(new QuadraticBezierSegment(c[p.Length - 2][0], p[^1], isStroked: true));
+                    segments.Add(new QuadraticBezierSegment(c[p.Length - 2][0], p[^1], isStroked: true));
 
-                var figures = new List<PathFigure>
-                {
+                    var figures = new List<PathFigure>
+                    {
                     new PathFigure(p[0], segments, closed: false)
-                };
+                    };
 
-                MainVisPath.Data = new PathGeometry(figures);
+                    MainVisPath.Data = new PathGeometry(figures);
 
-                //using (var file = new StreamWriter(@"C:\Users\Mmdre\Desktop\New Text Document.txt", false))
-                //    file.Write($"M {margin} {firstY} {string.Join(' ', segments.Where(x => x is BezierSegment).Cast<BezierSegment>().Select(x => $"C {x.Point1.X} {x.Point1.Y} {x.Point2.X} {x.Point2.Y} {x.Point3.X} {x.Point3.Y}"))}");
-            });
+                    //using (var file = new StreamWriter(@"C:\Users\Mmdre\Desktop\New Text Document.txt", false))
+                    //    file.Write($"M {margin} {firstY} {string.Join(' ', segments.Where(x => x is BezierSegment).Cast<BezierSegment>().Select(x => $"C {x.Point1.X} {x.Point1.Y} {x.Point2.X} {x.Point2.Y} {x.Point3.X} {x.Point3.Y}"))}");
+                });
 
-            lastPoints = numPoints;
+                lastPoints = numPoints;
+            }
+
+            var sleep = lastnums.Average();
+            Thread.Sleep((int)(10 - (sleep * 4)));
         }
 
-        var sleep = lastnums.Average();
-        Thread.Sleep((int)(10 - (sleep * 4)));
+        void RenderVis(Point[] p, Point[][] c, int numPoints, Path path)
+        {
+            if (first)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    var segments = new List<PathSegment>
+                        {
+                        new QuadraticBezierSegment(c[1][1], p[1], isStroked: true)
+                        };
+
+                    for (var i = 1; i < numPoints - 2; i++)
+                        segments.Add(new BezierSegment(c[i][0], c[i + 1][1], p[i + 1], isStroked: true));
+
+                    segments.Add(new QuadraticBezierSegment(c[numPoints - 2][0], new Point(p[numPoints - 1].X, amp / 2), isStroked: true));
+
+                    var figures = new List<PathFigure>
+                        {
+                    new PathFigure(p[0], segments, closed: false)
+                        };
+
+                    path.Data = new PathGeometry(figures);
+                    path.Height = amp;
+                });
+            }
+            else
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    var geometry = (PathGeometry)path.Data;
+                    var segments = geometry.Figures[0].Segments;
+                    geometry.Figures[0].StartPoint = p[0];
+                    var segstart = (QuadraticBezierSegment)segments[0];
+                    segstart.Point1 = c[1][1];
+                    segstart.Point2 = p[1];
+
+                    for (var i = 1; i < numPoints - 2; i++)
+                    {
+                        var seg = (BezierSegment)segments[i];
+                        seg.Point1 = c[i][0];
+                        seg.Point2 = c[i + 1][1];
+                        seg.Point3 = p[i + 1];
+                    }
+
+                    var segend = (QuadraticBezierSegment)segments[numPoints - 2];
+                    segend.Point1 = c[numPoints - 2][0];
+                    //segend.Point2 = p[numPoints - 1];
+                });
+            }
+        }
     }
+
     private double CustomMap(double vol)
     {
         return (-amp * vol * vol) + amp;
@@ -263,93 +370,132 @@ public partial class MainWindow : Window
 
     #region Visuals
 
-    private int theme = 0;
-    private void ThemeLightMode()
+    private void ChangeFull(int f)
     {
-        MainBorder.Background = new SolidColorBrush(Color.FromArgb(255, 255, 255, 255)); // WINDOW_BACKGROUND
-        MainBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(128, 128, 128, 128)); // WINDOW_BORDERBRUSH
-        ((LinearGradientBrush)MainVisPath.Stroke).GradientStops[0].Color = Color.FromArgb(255, 255, 255, 255); // VIS_STROKE
-        ((LinearGradientBrush)MainVisPath.Stroke).GradientStops[1].Color = Color.FromArgb(255, 0, 0, 0); // VIS_STROKE
-        ((LinearGradientBrush)MainVisPath.Stroke).GradientStops[2].Color = Color.FromArgb(255, 0, 0, 0); // VIS_STROKE
-        ((LinearGradientBrush)MainVisPath.Stroke).GradientStops[3].Color = Color.FromArgb(255, 255, 255, 255); // VIS_STROKE
-        BirdPath.Fill = new SolidColorBrush(Color.FromArgb(150, 0, 0, 0)); // BIRD_FILL
-        MainVisPath.StrokeThickness = 1;
-    }
-
-    private void ThemeDarkMode()
-    {
-        MainBorder.Background = new SolidColorBrush(Color.FromArgb(255, 0, 0, 0)); // WINDOW_BACKGROUND
-        MainBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(128, 128, 128, 128)); // WINDOW_BORDERBRUSH
-        ((LinearGradientBrush)MainVisPath.Stroke).GradientStops[0].Color = Color.FromArgb(255, 0, 0, 0); // VIS_STROKE
-        ((LinearGradientBrush)MainVisPath.Stroke).GradientStops[1].Color = Color.FromArgb(255, 255, 255, 255); // VIS_STROKE
-        ((LinearGradientBrush)MainVisPath.Stroke).GradientStops[2].Color = Color.FromArgb(255, 255, 255, 255); // VIS_STROKE
-        ((LinearGradientBrush)MainVisPath.Stroke).GradientStops[3].Color = Color.FromArgb(255, 0, 0, 0); // VIS_STROKE
-        BirdPath.Fill = new SolidColorBrush(Color.FromArgb(150, 255, 255, 255)); // BIRD_FILL
-        MainVisPath.StrokeThickness = 2;
-    }
-
-    private bool f12Active = false;
-    private void ToggleF12()
-    {
-        if (f12Active)
+        full = f;
+        switch (full)
         {
-            MoveToDefaultLocation(true);
-            Width = defaultWidth;
-            Height = defaultHeight;
-            Topmost = false;
-            f12Active = false;
-        }
-        else
-        {
-            WindowState = WindowState.Normal;
-            Width = MON_WIDTH * 2;
-            Height = MON_HEIGHT;
-            Left = -MON_WIDTH;
-            Top = 0;
-            Topmost = true;
-            f12Active = true;
-        }
-        ToggleFullScreen(f12Active);
-    }
+            case 0: // normal
+                WindowState = WindowState.Normal;
+                Width = defaultWidth;
+                Height = defaultHeight;
+                MoveToDefaultLocation(true);
+                Topmost = false;
 
-    private void ToggleF11()
-    {
-        if (f12Active) ToggleF12();
-
-        if (WindowState == WindowState.Maximized)
-        {
-            WindowState = WindowState.Normal;
-            ToggleFullScreen(false);
-        }
-        else
-        {
-            WindowState = WindowState.Maximized;
-            ToggleFullScreen(true);
-        }
-    }
-
-    private void ToggleFullScreen(bool full)
-    {
-        lock (visLocker)
-        {
-            if (full)
-            {
-                amp = 200;
-                avgCount = 10;
-                xMult = 20;
-                MainBorder.BorderThickness = new Thickness(0);
-                Canvas.SetTop(Bird, amp + 15);
-            }
-            else
-            {
+                MainTabControl.SelectedIndex = 0;
                 amp = 26;
                 avgCount = 5;
                 xMult = 3;
                 MainBorder.BorderThickness = new Thickness(1);
                 Canvas.SetTop(Bird, amp + 9);
-            }
-            avgIndex = 0;
-            lastnums = new float[avgCount];
+                Canvas.SetTop(RRight, amp + 9);
+                Canvas.SetTop(LLeft, amp + 9);
+
+                break;
+            case 1: // full_screen
+                MoveToDefaultLocation(true);
+                WindowState = WindowState.Maximized;
+                Topmost = false;
+
+                MainTabControl.SelectedIndex = 0;
+                amp = 26;
+                avgCount = 5;
+                xMult = 3;
+                MainBorder.BorderThickness = new Thickness(0);
+                Canvas.SetTop(Bird, amp + 15);
+                Canvas.SetTop(RRight, amp + 15);
+                Canvas.SetTop(LLeft, amp + 15);
+
+                break;
+            case 2: // double_full_screen
+                WindowState = WindowState.Normal;
+                Width = MON_WIDTH * 2;
+                Height = MON_HEIGHT;
+                Left = -MON_WIDTH;
+                Top = 0;
+                Topmost = true;
+
+                MainTabControl.SelectedIndex = 0;
+                amp = 26;
+                avgCount = 5;
+                xMult = 3;
+                MainBorder.BorderThickness = new Thickness(0);
+                Canvas.SetTop(Bird, amp + 15);
+                Canvas.SetTop(RRight, amp + 15);
+                Canvas.SetTop(LLeft, amp + 15);
+
+                break;
+            case 3: // visual_full_screen
+                MoveToDefaultLocation(true);
+                WindowState = WindowState.Maximized;
+                Topmost = false;
+
+                MainTabControl.SelectedIndex = 1;
+                amp = 26;
+                avgCount = 5;
+                xMult = 3;
+                first = true;
+                MainBorder.BorderThickness = new Thickness(0);
+                Canvas.SetTop(Bird, amp + 15);
+                Canvas.SetTop(RRight, amp + 15);
+                Canvas.SetTop(LLeft, amp + 15);
+
+                break;
+            default: full = 0; goto case 0;
+        }
+
+        UpdateLoop();
+        avgIndex = 0;
+        lastnums = new float[avgCount];
+
+        ChangeTheme(theme, false);
+    }
+
+    private void ChangeTheme(int t, bool init = true)
+    {
+        theme = t;
+        switch (theme)
+        {
+            case 0: ThemeLightMode(init); break;
+            case 1: ThemeDarkMode(init); break;
+            default: theme = 0; goto case 0;
+        }
+    }
+
+    private int theme = 0;
+    private int full = 0;
+
+    private void ThemeLightMode(bool init)
+    {
+        if (init)
+        {
+            MainBorder.Background = new SolidColorBrush(Color.FromArgb(255, 255, 255, 255)); // WINDOW_BACKGROUND
+            MainBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(128, 128, 128, 128)); // WINDOW_BORDERBRUSH
+            ((LinearGradientBrush)MainVisPath.Stroke).GradientStops[0].Color = Color.FromArgb(255, 255, 255, 255); // VIS_STROKE
+            ((LinearGradientBrush)MainVisPath.Stroke).GradientStops[1].Color = Color.FromArgb(255, 0, 0, 0); // VIS_STROKE
+            ((LinearGradientBrush)MainVisPath.Stroke).GradientStops[2].Color = Color.FromArgb(255, 0, 0, 0); // VIS_STROKE
+            ((LinearGradientBrush)MainVisPath.Stroke).GradientStops[3].Color = Color.FromArgb(255, 255, 255, 255); // VIS_STROKE
+            BirdPath.Fill = new SolidColorBrush(Color.FromArgb(150, 0, 0, 0)); // BIRD_FILL
+            RightPath.Fill = new SolidColorBrush(Color.FromArgb(150, 0, 0, 0)); // BIRD_FILL
+            LeftPath.Fill = new SolidColorBrush(Color.FromArgb(150, 0, 0, 0)); // BIRD_FILL
+            MainVisPath.StrokeThickness = 1;
+        }
+    }
+
+    private void ThemeDarkMode(bool init)
+    {
+        if (init)
+        {
+            MainBorder.Background = new SolidColorBrush(Color.FromArgb(255, 0, 0, 0)); // WINDOW_BACKGROUND
+            MainBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(128, 128, 128, 128)); // WINDOW_BORDERBRUSH
+            ((LinearGradientBrush)MainVisPath.Stroke).GradientStops[0].Color = Color.FromArgb(255, 0, 0, 0); // VIS_STROKE
+            ((LinearGradientBrush)MainVisPath.Stroke).GradientStops[1].Color = Color.FromArgb(255, 255, 255, 255); // VIS_STROKE
+            ((LinearGradientBrush)MainVisPath.Stroke).GradientStops[2].Color = Color.FromArgb(255, 255, 255, 255); // VIS_STROKE
+            ((LinearGradientBrush)MainVisPath.Stroke).GradientStops[3].Color = Color.FromArgb(255, 0, 0, 0); // VIS_STROKE
+            BirdPath.Fill = new SolidColorBrush(Color.FromArgb(150, 255, 255, 255)); // BIRD_FILL
+            RightPath.Fill = new SolidColorBrush(Color.FromArgb(150, 255, 255, 255)); // BIRD_FILL
+            LeftPath.Fill = new SolidColorBrush(Color.FromArgb(150, 255, 255, 255)); // BIRD_FILL
+            MainVisPath.StrokeThickness = 1;
         }
     }
 
@@ -419,6 +565,11 @@ public partial class MainWindow : Window
         source?.AddHook(new HwndSourceHook(WndProc));
     }
 
+    private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+    {
+        Environment.Exit(0);
+    }
+
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         try
@@ -426,33 +577,25 @@ public partial class MainWindow : Window
             switch (e.Key)
             {
                 case Key.Escape:
-                    if (f12Active) goto case Key.F12;
-                    else
-                    {
-                        WindowState = WindowState.Normal;
-                        ToggleFullScreen(false);
-                    }
+                    ChangeFull(0);
+                    break;
+                case Key.F1:
+                    ChangeFull(full == 3 ? 0 : 3);
                     break;
                 case Key.F11:
-                    ToggleF11();
+                    ChangeFull(full == 1 ? 0 : 1);
                     break;
                 case Key.F12:
-                    if (isPc)
-                        ToggleF12();
+                    if (isPc) ChangeFull(full == 2 ? 0 : 2);
                     break;
                 case Key.S:
-                    switch (++theme)
-                    {
-                        case 0: ThemeLightMode(); break;
-                        case 1: ThemeDarkMode(); break;
-                        default: theme = 0; goto case 0;
-                    }
+                    ChangeTheme(++theme);
                     break;
                 case Key.T:
                     Topmost = !Topmost;
                     break;
                 case Key.D:
-                    if (!f12Active)
+                    if (full == 0)
                         MoveToDefaultLocation(true);
                     break;
                 case Key.Space:
@@ -468,6 +611,17 @@ public partial class MainWindow : Window
                     else if (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)) Seek(-8.0);
                     else Seek(-2.5);
                     break;
+                case Key.OemOpenBrackets:
+                    ToggleLoopStart();
+                    break;
+                case Key.OemCloseBrackets:
+                    ToggleLoopEnd();
+                    break;
+                case Key.OemBackslash:
+                    loopStart = null;
+                    loopEnd = null;
+                    UpdateLoop();
+                    break;
             }
         }
         catch { }
@@ -479,7 +633,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (!f12Active)
+            if (full != 2)
                 if (e.LeftButton == MouseButtonState.Pressed)
                 {
                     DragMove();
@@ -541,7 +695,12 @@ public partial class MainWindow : Window
             if (outputDevice is null) return;
 
             audioFile = new AudioFileReader(fileName);
+
             ignore = true;
+            loopStart = null;
+            loopEnd = null;
+            UpdateLoop();
+
             if (outputDevice.PlaybackState > PlaybackState.Stopped) outputDevice.Stop();
             outputDevice.Init(audioFile);
 
@@ -552,6 +711,7 @@ public partial class MainWindow : Window
                 TextTextBlock.FontSize = 19;
                 TextTextBlock.Text = tagString;
             }
+
             outputDevice.Play();
         }
         catch { }
@@ -574,10 +734,52 @@ public partial class MainWindow : Window
                 ignore = false;
                 if ((long)Math.Floor(audioFile.CurrentTime.TotalMilliseconds) == (long)Math.Floor(audioFile.TotalTime.TotalMilliseconds))
                     audioFile.Position = 0L;
+
                 outputDevice.Play();
             }
         }
         catch { }
+    }
+
+    public void UpdateLoop()
+    {
+        if (audioFile is null)
+        {
+            Canvas.SetLeft(LLeft, 40.0);
+            Canvas.SetLeft(RRight, Width - 50);
+            return;
+        }
+
+        if (loopStart != null)
+            Canvas.SetLeft(LLeft, Map(loopStart.Value.TotalMilliseconds, 0.0, audioFile.TotalTime.TotalMilliseconds, 40.0, Width - 50));
+        else
+            Canvas.SetLeft(LLeft, 40.0);
+
+        if (loopEnd != null)
+            Canvas.SetLeft(RRight, Map(loopEnd.Value.TotalMilliseconds, 0.0, audioFile.TotalTime.TotalMilliseconds, 40.0, Width - 50));
+        else
+            Canvas.SetLeft(RRight, Width - 50);
+    }
+
+    public void ToggleLoopStart()
+    {
+        if (audioFile is null) return;
+        if (loopStart is not null) loopStart = null;
+        else loopStart = audioFile.CurrentTime;
+
+        if (loopEnd is not null && loopStart > loopEnd) (loopEnd, loopStart) = (loopStart, loopEnd);
+
+        UpdateLoop();
+    }
+    public void ToggleLoopEnd()
+    {
+        if (audioFile is null) return;
+        if (loopEnd is not null) loopEnd = null;
+        else loopEnd = audioFile.CurrentTime;
+
+        if (loopStart is not null && loopStart > loopEnd) (loopEnd, loopStart) = (loopStart, loopEnd);
+
+        UpdateLoop();
     }
 
     private object seekLocker = new();
@@ -587,6 +789,9 @@ public partial class MainWindow : Window
     private double amount = 0;
     private int remainingTime = 0;
     private const int maxTime = 4;
+
+    private TimeSpan? loopStart = null;
+    private TimeSpan? loopEnd = null;
     private void Seek(double amn)
     {
         try
@@ -633,7 +838,12 @@ public partial class MainWindow : Window
                                 {
                                     var timeSpan = seekFirst.Add(TimeSpan.FromSeconds(amount));
 
+                                    //if (loopStart is not null)
+                                    //    if (timeSpan < loopStart) timeSpan = loopStart.Value;
                                     if (timeSpan.TotalMilliseconds < 0.0) timeSpan = TimeSpan.Zero;
+
+                                    //if (loopEnd is not null)
+                                    //    if (timeSpan > loopEnd) timeSpan = loopEnd.Value;
                                     if (timeSpan > audioFile.TotalTime) timeSpan = audioFile.TotalTime;
 
                                     audioFile.CurrentTime = timeSpan;
@@ -661,19 +871,28 @@ public partial class MainWindow : Window
     {
         _ = Task.Run(delegate ()
         {
-            try
+            while (true)
             {
-                while (true)
+                try
                 {
                     if (audioFile != null)
                     {
                         bool s;
-                        lock (seekLocker)
-                        {
-                            s = !seeking;
-                        }
+                        lock (seekLocker) s = !seeking;
                         if (s)
                         {
+                            if (loopEnd is not null)
+                            {
+                                if (audioFile.CurrentTime > loopEnd)
+                                    if (loopStart is not null) audioFile.CurrentTime = loopStart.Value;
+                                    else audioFile.CurrentTime = TimeSpan.Zero;
+                            }
+                            else if (loopStart is not null)
+                            {
+                                if (audioFile.CurrentTime < loopStart)
+                                    audioFile.CurrentTime = loopStart.Value;
+                            }
+
                             Bird.Dispatcher.Invoke(delegate ()
                             {
                                 Canvas.SetLeft(Bird, Map(audioFile.CurrentTime.TotalMilliseconds, 0.0, audioFile.TotalTime.TotalMilliseconds, 40.0, Width - 50));
@@ -682,8 +901,8 @@ public partial class MainWindow : Window
                     }
                     Thread.Sleep(100);
                 }
+                catch { }
             }
-            catch { }
         });
     }
 
